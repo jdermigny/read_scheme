@@ -1,5 +1,6 @@
 #include<stdio.h>
 #include<stdlib.h>
+#include<math.h>
 
 #define MAX_CHAR_LENGTH 128
 #define MAX_TRANSITIONS 128
@@ -210,17 +211,21 @@ main(int argc, char** argv)
 
 	
 	decayPtr = roofstate;
-	decayPtr->net_br_feed=1.0;
+	decayPtr->net_br_feed=1;
 	decayPtr->net_br_feed_err=0.0;
 	printf("\nNET B-Values\n");
-
 	while ((decayPtr >= groundstate)) {
 		tmp_tran = (decayPtr->currentTran - 1);
-		
+		decayPtr->net_br_feed_err = sqrt(decayPtr->net_br_feed_err);
 		while ((tmp_tran - &(decayPtr->TranArray[0])) >= 0) {
-			
+			((tmp_tran->finalLevel)->net_br_feed_err) += pow((tmp_tran->BR)*(decayPtr->net_br_feed_err),2);
+			((tmp_tran->finalLevel)->net_br_feed_err) += pow((tmp_tran->BR_err)*(decayPtr->net_br_feed),2);
 			((tmp_tran->finalLevel)->net_br_feed) += (tmp_tran->BR)*(decayPtr->net_br_feed);
 			tmp_tran->net_br = (tmp_tran->BR)*(decayPtr->net_br_feed);
+			tmp_tran->net_br_err =pow(
+					      pow((tmp_tran->BR_err)*(decayPtr->net_br_feed),2)
+					     +pow((tmp_tran->BR)*(decayPtr->net_br_feed_err),2)
+					      ,.5);
 			printf("%ld\t%ld\t%.4f\t%.4f\n", decayPtr - groundstate 
 							       , tmp_tran->finalLevel - groundstate 
 							       , (tmp_tran->net_br)
