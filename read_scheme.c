@@ -7,6 +7,8 @@
 #define TRUE 1
 #define FALSE 0
 
+#define BR_RAT .01
+
 typedef enum {
 	BEGIN, READLEVEL, READTRANS
 }		read_state;
@@ -16,13 +18,18 @@ struct TRANSITION {
 	double		BR;
 	double		BR_err;
 	struct LEVEL   *finalLevel;
+	double		net_br;
+	double		net_br_err;
 };
 
 
 struct LEVEL {
 	double		Energy;
+	double		net_br_feed;
+	double		net_br_feed_err;
 	struct TRANSITION TranArray[MAX_TRANSITIONS];
 	struct TRANSITION *currentTran;
+
 };
 
 struct LEVEL   *
@@ -61,8 +68,8 @@ processTransition(char *bufferstring, struct LEVEL *initialLevel, struct LEVEL *
 
 	(initialLevel->currentTran)->Gamma = GammaEnergy;
 	(initialLevel->currentTran)->finalLevel = finalLevel;
-	(initialLevel->currentTran)->BR = BR;
-	(initialLevel->currentTran)->BR_err = BR_err;
+	(initialLevel->currentTran)->BR = BR_RAT*BR;
+	(initialLevel->currentTran)->BR_err = BR_RAT*BR_err;
 
 	(initialLevel->currentTran)++;
 	return finalLevel;
@@ -82,6 +89,8 @@ processLevel(char *bufferstring, struct LEVEL *decaylevel)
 		printf("LEVEL %f ADDED \n", energy);
 		decaylevel->Energy = energy;
 		decaylevel->currentTran = &(decaylevel->TranArray[0]);
+		decaylevel->net_br_feed = 0.0;
+		decaylevel->net_br_feed = 0.0;
 		return decaylevel;
 	}
 
@@ -189,10 +198,36 @@ main(int argc, char** argv)
 	while ((decayPtr <= roofstate)) {
 		tmp_tran = (decayPtr->currentTran - 1);
 		while ((tmp_tran - &(decayPtr->TranArray[0])) >= 0) {
-			fprintf(output,"%ld\t%ld\t%.4f\t%.4f\n", decayPtr - groundstate, tmp_tran->finalLevel - groundstate, (tmp_tran->BR)*.01,  (tmp_tran->BR_err)*.01);
+			
+			fprintf(output,"%ld\t%ld\t%.4f\t%.4f\n", decayPtr - groundstate 
+							       , tmp_tran->finalLevel - groundstate 
+							       , (tmp_tran->BR)
+							       , (tmp_tran->BR_err));
 			tmp_tran--;
 		}
 		decayPtr++;
+	}
+
+	
+	decayPtr = roofstate;
+	decayPtr->net_br_feed=1.0;
+	decayPtr->net_br_feed_err=0.0;
+	printf("\nNET B-Values\n");
+
+	while ((decayPtr >= groundstate)) {
+		tmp_tran = (decayPtr->currentTran - 1);
+		
+		while ((tmp_tran - &(decayPtr->TranArray[0])) >= 0) {
+			
+			((tmp_tran->finalLevel)->net_br_feed) += (tmp_tran->BR)*(decayPtr->net_br_feed);
+			tmp_tran->net_br = (tmp_tran->BR)*(decayPtr->net_br_feed);
+			printf("%ld\t%ld\t%.4f\t%.4f\n", decayPtr - groundstate 
+							       , tmp_tran->finalLevel - groundstate 
+							       , (tmp_tran->net_br)
+							       , (tmp_tran->net_br_err));
+			tmp_tran--;
+		}
+		decayPtr--;
 	}
 fclose(output);
 printf("\nresults written to %s.\n\thave a nice day!\n",tempfilename);
